@@ -8,21 +8,25 @@
 // ==/UserScript==
 
 // a function that loads jQuery and calls a callback function when jQuery has finished loading
+// source: http://erikvold.com/blog/index.cfm/2010/6/14/using-jquery-with-a-user-script
 function addJQuery(callback) {
-  var script = document.createElement("script");
-  script.setAttribute("src", "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js");
-  script.addEventListener('load', function() {
     var script = document.createElement("script");
-    script.textContent = "(" + callback.toString() + ")();";
+    script.setAttribute("src", "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js");
+    script.addEventListener('load', function() {
+        var script = document.createElement("script");
+        script.textContent = "(" + callback.toString() + ")();";
+        document.body.appendChild(script);
+    }, false);
     document.body.appendChild(script);
-  }, false);
-  document.body.appendChild(script);
 }
 
 // the guts of this userscript
 function main() {
     console.log ('loaded');
     $articleTable = $("table table .title:first").parents('table:first');
+
+    // Make the main table 100% so we can right align the X button
+    $articleTable.attr('width','100%');
 
     // Divide into posts
     var posts = [];
@@ -70,24 +74,10 @@ function main() {
             //$(pair.commentRow).css('background-color','green');
         }
     });
-    console.log(posts);
     window.posts = posts;
-
-    // Test localstorage
-    visits = localStorage.getItem('pageVisits');
-    if (visits === undefined) {
-        visits = 0;
-    } else {
-        visits = parseInt(visits);
-    }
-    localStorage.setItem('pageVisits',visits + 1);
-    console.log(localStorage.getItem('pageVisits'));
-
 
     $(posts).each(function(index,post) {
         // Record when the title was clicked
-        console.log(post);
-        console.log(post.titleAnchor);
         $(post.titleAnchor).click(function() {
             localStorage.setItem("visitedItem" + post.itemId,"1");
 
@@ -106,13 +96,25 @@ function main() {
         // Hide when both have been clicked
         visitedItem = localStorage.getItem("visitedItem" + post.itemId) == "1";
         visitedItemComments = localStorage.getItem("visitedItemComments" + post.itemId) == "1";
+        hideAnyway = localStorage.getItem("hideAnyway" + post.itemId) == "1";
 
-        if (visitedItem && visitedItemComments) {
-            // Hide the entire row
+        function hideRow(post) {
             $(post.titleRow).hide();
             $(post.commentRow).hide();
-            $(post.spacingEl).hide();
+            $(post.spacingEl).hide()
         }
+
+        if ((visitedItem && visitedItemComments) || hideAnyway) {
+            // Hide the entire row
+            hideRow(post);
+        } else if (visitedItem || visitedItemComments) {
+            // Add an X button to hide
+            $(post.titleRow).append("<td style='color:#DBDBD3;cursor:pointer;'>X&nbsp;</td>").click(function() {
+                localStorage.setItem("hideAnyway" + post.itemId,"1");
+                hideRow(post);
+            });
+        }
+
     });
 }
 
