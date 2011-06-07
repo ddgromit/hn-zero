@@ -20,13 +20,11 @@ function addJQuery(callback) {
     document.body.appendChild(script);
 }
 
-// the guts of this userscript
 function main() {
-    console.log ('loaded');
     $articleTable = $("table table .title:first").parents('table:first');
 
-    // Make the main table 100% so we can right align the X button
-    $articleTable.attr('width','100%');
+    // Some CSS for hovering that couldn't be done inline
+    $("<style>.title:hover .hide-anyway { display: inline; } .hide-anyway { display:none; color:#A2A2A2;cursor:pointer;} .hide-anyway:hover { color:white;background-color:#A2A2A2; }</style>").appendTo("head");
 
     // Divide into posts
     var posts = [];
@@ -34,11 +32,12 @@ function main() {
 
     $articleTable.find('tr').each(function(index,el) {
         // Ignore spacer rows
-        if ($(el).attr('style') !== undefined || $(el).find("span").length == 0) {
+        if ($(el).attr('style') !== undefined || $(el).find("span").length === 0) {
             return;
         }
-        //Divide into top and bottom rows
-        if (titleRow == null) {
+
+        //Divide into title and comment rows
+        if (titleRow === null) {
             titleRow = el;
         } else {
             commentRow = el;
@@ -56,7 +55,7 @@ function main() {
             spacingEl = $(commentRow).next();
 
             // Create an object with all the useful post properties
-            var pair = {
+            var post = {
                 'titleRow':titleRow,
                 'commentRow':el,
                 'itemId':itemId,
@@ -64,20 +63,19 @@ function main() {
                 'commentAnchor':commentAnchor,
                 'spacingEl':spacingEl
             };
+            posts.push(post);
+
             titleRow = null;
-            posts.push(pair);
-
-
-
-            // Test by coloring
-            //$(pair.titleRow).css('background-color','red');
-            //$(pair.commentRow).css('background-color','green');
         }
     });
-    window.posts = posts;
 
+    // For debugging
+    window.hnposts = posts;
+
+
+    // Do interesting stuff with the lines of posts
     $(posts).each(function(index,post) {
-        // Record when the title was clicked
+        // Record when the title link was clicked
         $(post.titleAnchor).click(function() {
             localStorage.setItem("visitedItem" + post.itemId,"1");
 
@@ -85,7 +83,7 @@ function main() {
             return true;
         });
 
-        // Record when the comments were clicked
+        // Record when the comments link was clicked
         $(post.commentAnchor).click(function() {
             localStorage.setItem("visitedItemComments" + post.itemId,"1");
 
@@ -93,7 +91,7 @@ function main() {
             return true;
         });
 
-        // Hide when both have been clicked
+        // Use web storage to store if a post has been visited
         visitedItem = localStorage.getItem("visitedItem" + post.itemId) == "1";
         visitedItemComments = localStorage.getItem("visitedItemComments" + post.itemId) == "1";
         hideAnyway = localStorage.getItem("hideAnyway" + post.itemId) == "1";
@@ -101,19 +99,22 @@ function main() {
         function hideRow(post) {
             $(post.titleRow).hide();
             $(post.commentRow).hide();
-            $(post.spacingEl).hide()
+            $(post.spacingEl).hide();
         }
 
         if ((visitedItem && visitedItemComments) || hideAnyway) {
-            // Hide the entire row
+            // Hide the entire row when both links have been clicked or X hit
             hideRow(post);
         } else if (visitedItem || visitedItemComments) {
-            // Add an X button to hide
-            $(post.titleRow).append("<td style='color:#DBDBD3;cursor:pointer;'>X&nbsp;</td>").click(function() {
-                localStorage.setItem("hideAnyway" + post.itemId,"1");
-                hideRow(post);
-            });
+            // Maybe highlight the comments or title to show whats left to do?
         }
+
+        // Add an X button that manually hides a post
+        $hideAnyway = $("<span class='hide-anyway'>&#x2718;</span>").click(function() {
+            localStorage.setItem("hideAnyway" + post.itemId,"1");
+            hideRow(post);
+        });
+        $(post.titleRow).find('.comhead').after($hideAnyway);
 
     });
 }
